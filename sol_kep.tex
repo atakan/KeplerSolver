@@ -1,0 +1,219 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage[fleqn]{amsmath}
+\usepackage{natbib}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{ucs}
+\usepackage[utf8x]{inputenc}
+\bibliographystyle{plainnat.bst}
+
+\usepackage[T1]{fontenc}
+\usepackage{ae,aecompl}
+\usepackage{textcomp}
+
+\newcommand{\swift}{{\tt SWIFT}}
+
+\author{M. Atakan Gürkan}
+\title{Solving Kepler's Equation}
+\date{}
+\begin{document}
+\maketitle
+\section{The problem}
+Solving Kepler's equation for arbitrary epoch and eccentricity
+is a common problem in celestial mechanics. Below, I present
+my implementation of such a solver, written in {\tt C}. It is
+an extension of \citeauthor{1985CeMec..35..129S}'s (\citeyear{1985CeMec..35..129S}) work, and uses
+ideas from \citet{1992fcm..book.....D} and \citet{1999CeMDA..74..275M}.
+
+Given initial position and velocity and the time interval, the code
+calculates the new position and the velocity of a particle with
+the Hamiltonian
+\begin{equation}
+{\mathcal H} = \frac{p^2}{2m} - \frac{\mu}{r} -\frac{B_2}{r^2}\,.
+\end{equation}
+
+\section{Why a new routine}
+There are of course codes already available for this purpose;
+perhaps most notably the \texttt{SWIFT} 
+routines\footnote{See: \url{http://www.boulder.swri.edu/~hal/swift.html}}.
+They are heavily tested and {\em very} reliable. However, I wanted to
+write my own routines, for a number of reasons.
+\begin{itemize}
+\item It was not straightforward for me to reach machine accuracy
+with \swift\ routines. In particular, on my laptop (AMD, x86-64) with
+GNU Fortran compiler, I explicitly had to use ``\verb|-mfpmath=387|''
+flag. Unless this flag is used, the code generated uses the double
+precision SSE instruction set. Unlike the 387 coprocessor instructions,
+SSE instructions do not store the temporary results in 80 bit precision.
+Seemingly this causes a small error (this was pointed out to me by
+Patricia Verrier). However, the error is consistent, so it adds up linearly
+in time, and decreasing the timestep makes things worse.\\
+I probably did not need machine precision in the first place,
+but it provides a peace of mind.
+\item I wanted something compact and in \texttt{C}, so I could play
+around with it more easily, parallelize the code, port it to GPUs etc.
+\item I wanted to see if continued fractions led to faster code (The speed
+improvement I obtained was negligible).
+\item Continued fractions are intriguing on their own. The functions
+we need to solve Kepler's equation have surprisingly simple continued
+fraction expansions. Continued fractions allow infinite precision
+arithmetic \citep{1972HAKMEM..239..101}. Well, I do not know what to do
+about it at the moment, but it looks very interesting.
+\end{itemize}
+Please note that my experience with \swift\ routines is very limited.
+It is possible that one can make a few modifications to increase
+their accuracy while maintaining their reliability. I'd appreciate any
+feedback on this matter. 
+
+\section{Solving Kepler's equation}
+For simplicity let us initially assume $B_2=0$. Then the orbit is a Keplerian conic
+section. We start by calculating the quantities
+\begin{equation}
+r_0 = |\mathbf{r}_0|, \quad
+v_0 = |\mathbf{v}_0|, \quad
+\sigma_0 = \mathbf{r}_0 \mathbf{\cdot} \mathbf{v}_0, \quad
+\beta = \frac{2\mu}{r_0} - v_0^2\,,
+\end{equation}
+where $\mathbf{r}_0$ and $\mathbf{v}_0$ are the
+initial position and velocity vectors, respectively. If $\beta>0$,
+we have an elliptical orbit and can calculate the period
+\begin{equation}
+P = 2\pi\mu \beta^{-3/2}\,,
+\end{equation}
+and the quantity
+\begin{equation}
+\delta U = n2\pi\beta^{-5/2},\quad 
+n = \left\lfloor\frac{\delta t + P/2 -2\sigma_0/\beta}{P}\right\rfloor\,,
+\end{equation}
+where $\delta t$ is the given time interval. This will be useful if
+$\delta t > P$, a situation that I do not encounter since I always
+choose timesteps much shorter than the period.
+
+For our independent variable, we choose the initial value $u=0$. The
+main loop consists of the following steps (prime denotes differentiation
+with respect to $u$):
+\begin{gather}
+q = \frac{\beta u^2}{1+\beta u^2} \,,\\
+q' = \frac{2\beta u}{(1+\beta u^2)^2} \,,\\
+q'' = \frac{2\beta}{(1+\beta u^2)^2} 
+		  - \frac{8\beta^2 u^2}{(1+\beta u^2)^3} \,, \\
+\tilde{U_0} = 1 - 2q \,,\\
+\tilde{U_1} = 2(1-q)u \,,\\
+U = \frac{16}{15} \tilde{U_1}^5 G_5(q) + \delta U \,,\\
+U_0 = 2 \tilde{U_0}^2- 1 \,,\\
+U_1 = 2 \tilde{U_0} \tilde{U_1} \,,\\
+U_2 = 2 \tilde{U_1}^2 \,,\\
+U_3 = \beta U + U_1 U_2 /3 \,,\\
+r = r_0 U_0 + \sigma_0 U_1 + \mu U_2 \,,\\
+r' =  4 (1-q) (\sigma_0 U_0 + (\mu-\beta r_0)U_1) \,,\\
+r'' = -4 q' (\sigma_0 U_0 + (\mu-\beta r_0) U_1)
+		       + 16 (1-q)^2  (-\beta \sigma_0 U_1 + (\mu-\beta r_0) U_0) \,,\\
+\Delta t = r_0 U_1 + \sigma_0 U_2 + \mu U_3 \,,\\
+f = \Delta t - \delta t \,,\\
+f' = 4 (1-q) r \,,\\
+f'' = 4 (r' (1-q) - r q')\,,\\
+f''' = -8 r' q' - 4 r q'' + 4 (1-q) r'' \,,\\
+\delta u_1  = -f/f' \,,\\
+\delta u_2  = -f/(f' + \delta u_1 f''/2) \,,\\
+\delta u_3  = -f/(f' + \delta u_2 f''/2 + \delta u_2^2 f'''/6) \,,\\
+u = u+ \delta u_3\,.
+\end{gather}
+Once the increment $\delta u_3$ or $f$ is smaller than a preset
+tolerance, we exit the loop.  The function $G_5(x)$ is a special case
+of Gauss's hypergeometric function: $G_5(x) = {}_2F_1(5, 1; 7/2; x)$
+\citep[][Ch. 15]{1972hmf..book.....A}.  The position and velocities
+are calculated by
+\begin{gather}
+f = 1 - (\mu/ r_0) U_2 \,,\\
+g = r_0 U_1 + \sigma_0 U_2   \,,\\
+F = -\mu U_1/(r r_0) \,,\\
+G = 1 - (\mu/r) U_2    \,,\\
+\mathbf{r} = f \mathbf{r}_0 + g \mathbf{v}_0 \,,\\
+\mathbf{v} = F \mathbf{r}_0 + G \mathbf{v}_0 \,.
+\end{gather}
+This method of solution is almost identical to \citeauthor{1985CeMec..35..129S}'s.
+The only thing I did is to increase the
+order of the iteration by using \citeauthor{1992fcm..book.....D}'s technique.
+In the actual implementation, if $q>1/2$ during iteration, or if convergence
+is not achieved after 12 iterations, we stop, and try to cover $\delta t$ in
+two steps of $\delta t /2$.
+
+When $B_2 \neq 0 $, we need two modifications.
+In the following, I adopt the approach of \citet{1999CeMDA..74..275M};
+see that paper for generating functions etc.
+First note that in the plane of motion, we can transform to polar
+coordinates $(r,\theta)$ and write the Hamiltonian as
+\begin{equation}
+\begin{split}
+{\mathcal H} &= \frac{1}{2}\left(p_r^2 + \frac{p_\theta^2}{r^2}\right)
+	       - \frac{\mu}{r} -\frac{B_2}{r^2} \\
+& = \frac{1}{2}\left(p_r^2 + \frac{p_\theta^2 - 2B_2}{r^2}\right)
+	       - \frac{\mu}{r} \\
+& = \frac{1}{2}\left(p_r^2 + \frac{p_\psi^2}{r^2}\right)
+	       - \frac{\mu}{r}\,,
+\end{split}
+\end{equation}
+which is in Keplerian form. The first modification is
+\begin{equation}
+\beta = \frac{2\mu}{r_0} - v_0^2 + \frac{2 B_2}{r_0^2} \,.
+\end{equation}
+Furthermore, we cannot use $f$-$g$ formulation directly, so at the end of the loop,
+we revert to a more general method, which is applicable for any motion with a radial force:
+\begin{gather}
+\mathbf{p}_\theta = \mathbf{r}_0 \times \mathbf{v}_0 \,,\\
+p_\psi^2 = p_\theta^2 - 2 B_2 \,,\\
+f = 1 - (\mu/ r_0) U_2 \,,\\
+g = r_0 U_1 + \sigma_0 U_2   \,,\\
+\xi = \frac{g}{r_0^2 f + \sigma_0 g}\,,\\
+y_\psi = \xi  {\rm at}_1(p_\psi^2 \xi^2)\,,\\
+\dot{r} = (\sigma_0 U_0 + (\mu - \beta r_0) U_1)/r \,,\\
+\theta^2 = p_\theta^2 y_\psi^2 \,,\\
+\mathbf{r} = \frac{r}{r_0} (c_0(\theta^2) \mathbf{r}_0 
+		   + y_\psi c_1(\theta^2) \mathbf{p}_\theta \times \mathbf{r}_0)\,,\\
+\mathbf{v} = \frac{\dot{r}}{r} \mathbf{r} + \frac{1}{r^2}\mathbf{p}_\theta\times\mathbf{r}\,.
+\end{gather}
+In this formulation $c_0(x^2)$ and $c_1(x^2)$ are Stumpff functions,
+and ${\rm at}_1(x^2)$ is $\arctan(x)/x$.  All these functions, and the function
+$G_5(x)$ mentioned earlier, have simple continued fraction expansions.
+However, in my implementation, I only calculate $G_5(x)$ by continued fraction
+expansion to keep things simple. An efficient way to do this is given by
+\citep{1985CeMec..35..129S}. For calculating $c_0$ and $c_1$ by continued fractions,
+probably the best way is to use the approach of \citet{cont_frac1987}. The
+continued fraction for $\text{at}_1(x)$ goes back to Lambert (1770) and Lagrange (1776)
+according to \citet[][Appendix II, formula 14]{1963cf..book.....O}:
+\begin{equation}
+\text{at}_1(x) = \frac{\arctan(\sqrt{x})}{\sqrt{x}} =
+\cfrac{1}{1+\cfrac{1\cdot x}
+	 {3+\cfrac{4\cdot x}
+         {5+\cfrac{9\cdot x}
+	 {7+\cfrac{16\cdot x}
+	 {9+\cfrac{25\cdot x}{\ddots}}}}}}\,.
+\end{equation}
+%\section{Initial guesses}
+%As with any iterative process, solving Kepler's equation benefits
+%greatly from a good initial guess. A useful one is given by \citet[][eq. 6.9.38]{1992fcm..book.....D}
+%as the root of the following cubic equation:
+%\begin{equation}
+%f_2(w) = \frac{1}{6}(\mu - \beta r_0) w^3 + \frac{1}{2} \sigma_0 w^2 + r_0 w -\delta t = 0 \, .
+%\end{equation}
+%He also gives a prescription for finding one root of this equation. Once we have an initial
+%guess for $w$, we can transform this to an initial guess for $u$ by the following continued
+%fraction \citep[][eq. 4.100]{1987aittmamof..book.....B}
+%\begin{equation}
+%u = \frac{U_1(w/4, \beta)}{U_0(w/4, \beta)} =
+%\cfrac{w/4}{1-\cfrac{\beta(w/4)^2}
+%	   {3-\cfrac{\beta(w/4)^2}
+%           {5-\cfrac{\beta(w/4)^2}
+%	   {7-\cfrac{\beta(w/4)^2} {\ddots}}}}}\,.
+%\end{equation}
+%\citeauthor{1992fcm..book.....D} recommends this for near parabolic orbits, but in
+%my experience it is useful for all kinds of orbits; at least for small time increments
+%which lead to small changes in eccentric anomaly. 
+%
+%With this initial guess, these routines clearly outperform the \texttt{SWIFT}
+%routines. It is of course possible that the \texttt{SWIFT} routines would also benefit
+%from this initial guess and the difference would disappear.
+
+\bibliography{sol_kep}
+\end{document}
