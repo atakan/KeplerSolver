@@ -26,13 +26,13 @@ It may not be up to date if I make changes to the code (note added on 2017-06-30
 <p class="noindent" >Solving Kepler&#8217;s equation for arbitrary epoch and eccentricity is a common problem
 in celestial mechanics. Below, I present my implementation of such a solver, written
 in <span class="aett-10">C</span>. It is an extension of <a 
-href="sol_kep.html#X1985CeMec..35..129S">Shepperd</a>&#8217;s (<a 
-href="sol_kep.html#X1985CeMec..35..129S">1985</a>) work, and uses ideas from <a 
-href="sol_kep.html#X1992fcm..book.....D">Danby</a>&#x00A0;(<a 
-href="sol_kep.html#X1992fcm..book.....D">1992</a>)
+href="#X1985CeMec..35..129S">Shepperd</a>&#8217;s (<a 
+href="#X1985CeMec..35..129S">1985</a>) work, and uses ideas from <a 
+href="#X1992fcm..book.....D">Danby</a>&#x00A0;(<a 
+href="#X1992fcm..book.....D">1992</a>)
 and <a 
-href="sol_kep.html#X1999CeMDA..74..275M">Mikkola</a>&#x00A0;(<a 
-href="sol_kep.html#X1999CeMDA..74..275M">1999</a>).
+href="#X1999CeMDA..74..275M">Mikkola</a>&#x00A0;(<a 
+href="#X1999CeMDA..74..275M">1999</a>).
 <!--l. 30--><p class="indent" >   Given the initial position and velocity, and the time interval; the code calculates the new
 position and the velocity of a particle for the Hamiltonian
    <table 
@@ -81,8 +81,8 @@ class="aett-10">C</span>, so I could play around with it more
      need  to  solve  Kepler&#8217;s  equation  have  surprisingly  simple  continued
      fraction expansions. Continued fractions allow infinite precision arithmetic
      (<a 
-href="sol_kep.html#X1972HAKMEM..239..101">Gosper</a>,&#x00A0;<a 
-href="sol_kep.html#X1972HAKMEM..239..101">1972</a>). Well, I do not know what to do about it at the moment,
+href="#X1972HAKMEM..239..101">Gosper</a>,&#x00A0;<a 
+href="#X1972HAKMEM..239..101">1972</a>). Well, I do not know what to do about it at the moment,
      but it looks very interesting.</li></ul>
 <!--l. 66--><p class="noindent" >Please note that my experience with <span 
 class="aett-10">SWIFT</span>&#x00A0;routines is very limited. It is possible that
@@ -380,8 +380,8 @@ class="cmmi-10">&#x2215;</span><span
 class="cmr-10">2;</span><span 
 class="cmmi-10">x</span><span 
 class="cmr-10">) </span>(<a 
-href="sol_kep.html#X1972hmf..book.....A">Abramowitz and Stegun</a>,&#x00A0;<a 
-href="sol_kep.html#X1972hmf..book.....A">1972</a>, Ch. 15). The position and
+href="#X1972hmf..book.....A">Abramowitz and Stegun</a>,&#x00A0;<a 
+href="#X1972hmf..book.....A">1972</a>, Ch. 15). The position and
 velocities are calculated by
    <table 
 class="equation"><tr><td><a 
@@ -438,9 +438,9 @@ src="sol_kep31x.png" alt="v = Fr0 + Gv0 .
 " class="math-display" ></center></td><td class="equation-label">(32)</td></tr></table>
 <!--l. 136--><p class="nopar" >
 This method of solution is almost identical to <a 
-href="sol_kep.html#X1985CeMec..35..129S">Shepperd</a>&#8217;s. The only thing I did is
+href="#X1985CeMec..35..129S">Shepperd</a>&#8217;s. The only thing I did is
 to increase the order of the iteration by using <a 
-href="sol_kep.html#X1992fcm..book.....D">Danby</a>&#8217;s technique. In the
+href="#X1992fcm..book.....D">Danby</a>&#8217;s technique. In the
 actual implementation, if <span 
 class="cmmi-10">q &#x003E; </span><span 
 class="cmr-10">1</span><span 
@@ -457,8 +457,8 @@ class="cmr-7">2</span></sub><span
 class="cmmi-10">&#x2260;</span><span 
 class="cmr-10">0</span>, we need two modifications. In the following, I adopt the approach of
 <a 
-href="sol_kep.html#X1999CeMDA..74..275M">Mikkola</a>&#x00A0;(<a 
-href="sol_kep.html#X1999CeMDA..74..275M">1999</a>); see that paper for generating functions etc. First note that in the
+href="#X1999CeMDA..74..275M">Mikkola</a>&#x00A0;(<a 
+href="#X1999CeMDA..74..275M">1999</a>); see that paper for generating functions etc. First note that in the
 plane of motion, we can transform to polar coordinates <span 
 class="cmr-10">(</span><span 
 class="cmmi-10">r,&#x03B8;</span><span 
@@ -627,23 +627,23 @@ class="cmr-10">(</span><span
 class="cmmi-10">x</span><span 
 class="cmr-10">) </span>by continued fraction expansion to keep things simple. An efficient
 way to do this is given by <a 
-href="sol_kep.html#X1985CeMec..35..129S">Shepperd</a>&#x00A0;(<a 
-href="sol_kep.html#X1985CeMec..35..129S">1985</a>). For calculating <span 
+href="#X1985CeMec..35..129S">Shepperd</a>&#x00A0;(<a 
+href="#X1985CeMec..35..129S">1985</a>). For calculating <span 
 class="cmmi-10">c</span><sub><span 
 class="cmr-7">0</span></sub> and <span 
 class="cmmi-10">c</span><sub><span 
 class="cmr-7">1</span></sub> by
 continued fractions, probably the best way is to use the approach of <a 
-href="sol_kep.html#Xcont_frac1987">Flanders
+href="#Xcont_frac1987">Flanders
 and Frame</a>&#x00A0;(<a 
-href="sol_kep.html#Xcont_frac1987">1987</a>). The continued fraction for at<sub><span 
+href="#Xcont_frac1987">1987</a>). The continued fraction for at<sub><span 
 class="cmr-7">1</span></sub><span 
 class="cmr-10">(</span><span 
 class="cmmi-10">x</span><span 
 class="cmr-10">) </span>goes back to Lambert
 (1770) and Lagrange (1776) according to <a 
-href="sol_kep.html#X1963cf..book.....O">Olds</a>&#x00A0;(<a 
-href="sol_kep.html#X1963cf..book.....O">1963</a>, Appendix II, formula
+href="#X1963cf..book.....O">Olds</a>&#x00A0;(<a 
+href="#X1963cf..book.....O">1963</a>, Appendix II, formula
 14):
    <table 
 class="equation"><tr><td><a 
